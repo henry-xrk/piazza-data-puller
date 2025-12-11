@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piazza Data Puller</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .login-section {
+            display: none;
+        }
+
+        .login-section.active {
+            display: block;
+        }
+
+        .main-section {
+            display: none;
+        }
+
+        .main-section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .user-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .user-info span {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .data-type-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .data-type-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .data-type-card:hover {
+            border-color: #667eea;
+            background: #f8f9fa;
+        }
+
+        .data-type-card.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .data-type-card h3 {
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .data-type-card p {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .options-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.active {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            margin-top: 20px;
+        }
+
+        .file-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .file-list li {
+            padding: 10px;
+            background: #f8f9fa;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-list a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .file-list a:hover {
+            text-decoration: underline;
+        }
+
+        .classes-list {
+            margin-top: 10px;
+        }
+
+        .class-item {
+            padding: 10px;
+            background: #f8f9fa;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .class-item:hover {
+            background: #e9ecef;
+        }
+
+        .class-item.selected {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Piazza Data Puller</h1>
+            <p>Pull and export data from your Piazza classes</p>
+        </div>
+
+        <!-- Login Section -->
+        <div class="card login-section active" id="loginSection">
+            <h2>Login to Piazza</h2>
+            <div class="alert alert-error" id="loginError"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required placeholder="Your password">
+                </div>
+                <div class="form-group">
+                    <label for="loginNetworkId">Network ID (Optional)</label>
+                    <input type="text" id="loginNetworkId" name="networkId" placeholder="Enter network ID now or set it later">
+                    <small style="color: #666; font-size: 0.9em; display: block; margin-top: 5px;">
+                        You can enter it now or set it after login. Find it in your class URL: piazza.com/class/[network_id]
+                    </small>
+                </div>
+                <button type="submit" class="btn" id="loginBtn">Login</button>
+                <button type="button" class="btn btn-secondary" id="demoLoginBtn" style="margin-top: 10px;">Quick Demo Login</button>
+            </form>
+        </div>
+
+        <!-- Main Section -->
+        <div class="card main-section" id="mainSection">
+            <div class="user-info">
+                <div>
+                    <span id="userName">User</span>
+                    <span id="userEmail"></span>
+                </div>
+                <button class="btn btn-secondary" id="logoutBtn" style="width: auto; padding: 8px 16px;">Logout</button>
+            </div>
+
+            <div class="alert" id="alert"></div>
+
+            <h2>Select Network (Class)</h2>
+            <div class="form-group">
+                <label for="networkId">Network ID</label>
+                <input type="text" id="networkId" placeholder="Enter network ID or select from your classes">
+                <button class="btn" id="loadClassesBtn" style="margin-top: 10px; width: auto;">Load My Classes</button>
+                <div class="classes-list" id="classesList"></div>
+            </div>
+
+            <button class="btn" id="setNetworkBtn" style="margin-bottom: 20px;">Set Network</button>
+
+            <h2>Select Data Type</h2>
+            <div class="data-type-grid">
+                <div class="data-type-card" data-type="posts">
+                    <h3>📝 Posts</h3>
+                    <p>All posts with full content</p>
+                </div>
+                <div class="data-type-card" data-type="users">
+                    <h3>👥 Users</h3>
+                    <p>All users in class</p>
+                </div>
+                <div class="data-type-card" data-type="feed">
+                    <h3>📰 Feed</h3>
+                    <p>Feed summaries</p>
+                </div>
+                <div class="data-type-card" data-type="stats">
+                    <h3>📊 Statistics</h3>
+                    <p>Class statistics</p>
+                </div>
+                <div class="data-type-card" data-type="materials">
+                    <h3>📚 Materials</h3>
+                    <p>Course materials</p>
+                </div>
+                <div class="data-type-card" data-type="search">
+                    <h3>🔍 Search</h3>
+                    <p>Search posts by query</p>
+                </div>
+            </div>
+
+            <!-- Search Query Input (shown only when search is selected) -->
+            <div class="form-group" id="searchQueryGroup" style="display: none;">
+                <label for="searchQuery">Search Query</label>
+                <input type="text" id="searchQuery" placeholder="Enter keywords to search for posts (e.g., 'homework assignment', 'midterm')">
+                <small style="color: #666; font-size: 0.9em; display: block; margin-top: 5px;">
+                    Search through post titles and content
+                </small>
+            </div>
+
+            <div class="options-row">
+                <div class="form-group">
+                    <label for="limit">Limit (optional)</label>
+                    <input type="number" id="limit" placeholder="Leave empty for all">
+                </div>
+                <div class="form-group">
+                    <label for="format">Export Format</label>
+                    <select id="format">
+                        <option value="json">JSON</option>
+                        <option value="csv">CSV</option>
+                        <option value="both">Both</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn" id="pullBtn" disabled>Pull Data</button>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Pulling data from Piazza...</p>
+            </div>
+
+            <div class="results" id="results" style="display: none;">
+                <h3>Results</h3>
+                <p id="resultMessage"></p>
+                <ul class="file-list" id="fileList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedDataType = null;
+        let currentNetworkId = null;
+
+        // Quick Demo Login
+        document.getElementById('demoLoginBtn').addEventListener('click', () => {
+            document.getElementById('email').value = 'admin@demo.com';
+            document.getElementById('password').value = 'demo123';
+            document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+        });
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const networkId = document.getElementById('loginNetworkId').value.trim();
+            const loginBtn = document.getElementById('loginBtn');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Logging in...';
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password, network_id: networkId || null})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('userName').textContent = data.user.name;
+                    document.getElementById('userEmail').textContent = ` (${data.user.email})`;
+                    document.getElementById('loginSection').classList.remove('active');
+                    document.getElementById('mainSection').classList.add('active');
+                    showAlert('Login successful!', 'success');
+                    
+                    // If network ID was provided, set it automatically
+                    if (networkId) {
+                        document.getElementById('networkId').value = networkId;
+                        currentNetworkId = networkId;
+                        // Automatically set the network
+                        setTimeout(async () => {
+                            try {
+                                const networkResponse = await fetch('/api/set-network', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({network_id: networkId})
+                                });
+                                const networkData = await networkResponse.json();
+                                if (networkData.success) {
+                                    showAlert('Network set automatically!', 'success');
+                                    document.getElementById('pullBtn').disabled = false;
+                                }
+                            } catch (error) {
+                                console.error('Auto-set network error:', error);
+                            }
+                        }, 500);
+                    }
+                } else {
+                    showAlert(data.error || 'Login failed', 'error', 'loginError');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error', 'loginError');
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+            }
+        });
+
+        // Load user classes
+        document.getElementById('loadClassesBtn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/user-classes');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const classesList = document.getElementById('classesList');
+                    classesList.innerHTML = '';
+                    
+                    if (data.classes.length === 0) {
+                        classesList.innerHTML = '<p>No classes found</p>';
+                        return;
+                    }
+                    
+                    data.classes.forEach(cls => {
+                        const div = document.createElement('div');
+                        div.className = 'class-item';
+                        div.textContent = `${cls.name} - ${cls.term} (${cls.nid})`;
+                        div.addEventListener('click', () => {
+                            document.querySelectorAll('.class-item').forEach(item => {
+                                item.classList.remove('selected');
+                            });
+                            div.classList.add('selected');
+                            document.getElementById('networkId').value = cls.nid;
+                            currentNetworkId = cls.nid;
+                        });
+                        classesList.appendChild(div);
+                    });
+                } else {
+                    showAlert(data.error || 'Failed to load classes', 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        });
+
+        // Set network
+        document.getElementById('setNetworkBtn').addEventListener('click', async () => {
+            const networkId = document.getElementById('networkId').value;
+            if (!networkId) {
+                showAlert('Please enter a network ID', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/set-network', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({network_id: networkId})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentNetworkId = networkId;
+                    showAlert('Network set successfully!', 'success');
+                    document.getElementById('pullBtn').disabled = false;
+                } else {
+                    showAlert(data.error || 'Failed to set network', 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        });
+
+        // Select data type
+        document.querySelectorAll('.data-type-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.data-type-card').forEach(c => {
+                    c.classList.remove('selected');
+                });
+                card.classList.add('selected');
+                selectedDataType = card.dataset.type;
+                
+                // Show/hide search query input
+                const searchQueryGroup = document.getElementById('searchQueryGroup');
+                if (selectedDataType === 'search') {
+                    searchQueryGroup.style.display = 'block';
+                } else {
+                    searchQueryGroup.style.display = 'none';
+                }
+            });
+        });
+
+        // Pull data
+        document.getElementById('pullBtn').addEventListener('click', async () => {
+            if (!selectedDataType) {
+                showAlert('Please select a data type', 'error');
+                return;
+            }
+            
+            if (!currentNetworkId) {
+                showAlert('Please set a network first', 'error');
+                return;
+            }
+            
+            // For search, require query
+            if (selectedDataType === 'search') {
+                const query = document.getElementById('searchQuery').value.trim();
+                if (!query) {
+                    showAlert('Please enter a search query', 'error');
+                    return;
+                }
+            }
+            
+            const limit = document.getElementById('limit').value || null;
+            const format = document.getElementById('format').value;
+            const searchQuery = selectedDataType === 'search' ? document.getElementById('searchQuery').value.trim() : null;
+            
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('pullBtn').disabled = true;
+            
+            try {
+                const requestBody = {
+                    type: selectedDataType,
+                    limit: limit ? parseInt(limit) : null,
+                    format: format
+                };
+                
+                // Add query for search type
+                if (selectedDataType === 'search' && searchQuery) {
+                    requestBody.query = searchQuery;
+                }
+                
+                const response = await fetch('/api/pull-data', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('resultMessage').textContent = 
+                        `Successfully pulled ${data.count} items. Files created:`;
+                    
+                    const fileList = document.getElementById('fileList');
+                    fileList.innerHTML = '';
+                    data.files.forEach(filename => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <span>${filename}</span>
+                            <a href="/api/download/${filename}" download>Download</a>
+                        `;
+                        fileList.appendChild(li);
+                    });
+                    
+                    document.getElementById('results').style.display = 'block';
+                    showAlert('Data pulled successfully!', 'success');
+                } else {
+                    showAlert(data.error || 'Failed to pull data', 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('pullBtn').disabled = false;
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                await fetch('/api/logout', {method: 'POST'});
+                document.getElementById('loginSection').classList.add('active');
+                document.getElementById('mainSection').classList.remove('active');
+                document.getElementById('loginForm').reset();
+                selectedDataType = null;
+                currentNetworkId = null;
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        });
+
+        // Alert helper
+        function showAlert(message, type, elementId = 'alert') {
+            const alert = document.getElementById(elementId);
+            alert.textContent = message;
+            alert.className = `alert alert-${type} active`;
+            setTimeout(() => {
+                alert.classList.remove('active');
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
+
