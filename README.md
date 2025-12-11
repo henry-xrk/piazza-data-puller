@@ -1,16 +1,20 @@
 # Piazza Data Puller
 
-A simple Python application to pull data from Piazza (posts, users, feeds, statistics) and export them to JSON or CSV formats.
+A web-based application to pull data from Piazza (posts, users, feeds, statistics, course materials) and export them to JSON or CSV formats. Features a modern, easy-to-use browser interface.
 
 ## Features
 
+- 🌐 **Web-based UI** - No command line needed, works entirely in your browser
 - 🔐 Secure authentication with Piazza
 - 📝 Pull posts with full details (content, answers, follow-ups)
 - 👥 Export user lists
 - 📊 Get network statistics
 - 📰 Retrieve feed data
+- 📚 Extract course materials (attachments, links, instructor notes)
+- 🔍 Search feed functionality
 - 💾 Export to JSON or CSV formats
-- ⚙️ Configurable via command-line or config file
+- 📋 Class selection from enrolled classes
+- 📥 Direct file downloads from the browser
 
 ## Installation
 
@@ -28,113 +32,66 @@ Or install directly:
 pip install piazza-api
 ```
 
-2. **Set up configuration (optional):**
+## Usage
 
-Copy the example config file and fill in your credentials:
+### Starting the Application
+
+1. **Start the web server:**
 
 ```bash
-cp config.json.example config.json
+python3 app.py
 ```
 
-Edit `config.json` with your Piazza credentials:
+2. **Open your browser:**
 
-```json
-{
-  "email": "your_email@example.com",
-  "password": "your_password",
-  "network_id": "your_network_id_here"
-}
-```
+Navigate to: `http://localhost:5001`
+
+You should see the login page.
+
+### Using the Web Interface
+
+#### Step 1: Login
+
+1. Enter your Piazza email and password
+2. Optionally enter a network ID (class ID) if you know it
+3. Click "Login"
+4. Wait for authentication (you'll see your name appear)
+
+**Note:** The web UI includes a demo mode for testing (login with `admin@demo.com` / `demo123`).
+
+#### Step 2: Set Network (Class)
+
+1. **Option A:** Enter the network ID manually in the text field
+2. **Option B:** Click "Load My Classes" to see all your enrolled classes
+   - Click on a class to select it
+   - The network ID will be filled automatically
+3. Click "Set Network" to connect
 
 **Note:** The network ID can be found in your Piazza class URL:
 - URL format: `https://piazza.com/class/{network_id}`
 
-## Usage
+#### Step 3: Select Data Type
 
-### Interactive Mode
+Click on one of the data type cards:
+- **📝 Posts** - All posts with full content
+- **👥 Users** - All users in the class
+- **📰 Feed** - Feed summaries
+- **📊 Statistics** - Class statistics
+- **📚 Materials** - Course materials (attachments, links, instructor notes)
+- **🔍 Search** - Search for posts in the feed
 
-Run without arguments for interactive mode:
+#### Step 4: Configure Options
 
-```bash
-python3 piazza_puller.py
-```
+- **Limit (optional):** Enter a number to limit results (leave empty for all)
+- **Export Format:** Choose JSON, CSV, or Both
 
-The script will prompt you for:
-- Email and password (if not in config)
-- Network ID (if not in config)
-- What data to pull
+#### Step 5: Pull Data
 
-### Command-Line Mode
+1. Click "Pull Data"
+2. Wait for the process to complete (you'll see a loading spinner)
+3. Download the exported files using the download links
 
-#### Pull Posts
-
-```bash
-# Pull all posts and export to JSON
-python3 piazza_puller.py --email your@email.com --network-id abc123 --pull posts
-
-# Pull limited number of posts
-python3 piazza_puller.py --email your@email.com --network-id abc123 --pull posts --limit 50
-
-# Export to CSV
-python3 piazza_puller.py --email your@email.com --network-id abc123 --pull posts --format csv
-
-# Export to both JSON and CSV
-python3 piazza_puller.py --email your@email.com --network-id abc123 --pull posts --format both
-```
-
-#### Pull Users
-
-```bash
-python3 piazza_puller.py --email your@email.com --network-id abc123 --pull users --format csv
-```
-
-#### Pull Feed
-
-```bash
-python3 piazza_puller.py --email your@email.com --network-id abc123 --pull feed --limit 100
-```
-
-#### Pull Statistics
-
-```bash
-python3 piazza_puller.py --email your@email.com --network-id abc123 --pull stats
-```
-
-#### Pull Course Materials
-
-```bash
-# Pull course materials (posts with attachments, links, or instructor notes)
-python3 piazza_puller.py --email your@email.com --network-id abc123 --pull materials --format both
-```
-
-#### Pull Everything
-
-```bash
-python3 piazza_puller.py --email your@email.com --network-id abc123 --pull all --format both
-```
-
-### Command-Line Options
-
-```
---email EMAIL              Piazza email address
---password PASSWORD        Piazza password
---network-id, --nid NID    Network ID (class ID)
---config PATH              Config file path (default: config.json)
---pull {posts,users,feed,stats,materials,all}
-                          What to pull (default: posts)
---limit N                 Limit number of posts to pull
---format {json,csv,both}  Export format (default: json)
---output-dir DIR           Output directory (default: output)
---sleep SECONDS           Sleep time between requests (default: 1.0)
-```
-
-### Using Config File
-
-If you have a `config.json` file, you can omit credentials:
-
-```bash
-python3 piazza_puller.py --pull posts
-```
+For more details about the web UI, see [README-UI.md](README-UI.md).
 
 ## Output
 
@@ -188,48 +145,84 @@ Course materials include posts that contain:
 - `is_pinned` - Whether post is pinned
 - `author_name` - Author name
 - `attachments` - List of attachments/files (if any)
-- `links` - List of URLs found in the post (if any)
+  - Attachment objects may contain: `id`, `name`, `url`, `size`, `type`
+  - **Note:** Attachment URLs may require Piazza authentication to access
+- `links` - List of URLs found in the post content (if any)
+  - **Note:** These are external links extracted from post text - can be clicked directly
 - `content_preview` - Preview of post content
+
+### Accessing Links and Attachments
+
+**Links (from `links` array):**
+- These are URLs extracted from the post content text
+- Usually external URLs (e.g., `https://example.com/resource`)
+- Can be clicked directly - no special handling needed
+- Open in a new tab/window when clicked
+
+**Attachments (from `attachments` array):**
+- These are files uploaded to Piazza
+- Attachment URLs are included in the exported data
+- **May require Piazza authentication** - you may need to:
+  1. Be logged into Piazza in your browser
+  2. Click the link while authenticated
+  3. Or access through the original Piazza post
+- If an attachment URL doesn't work, access it through the Piazza website using the post ID
+
+## Programmatic Usage
+
+The `PiazzaPuller` class can also be used programmatically in your own Python scripts:
+
+```python
+from piazza_puller import PiazzaPuller
+
+# Initialize
+puller = PiazzaPuller(email="your@email.com", password="password", network_id="abc123")
+
+# Authenticate
+if puller.authenticate():
+    # Set network
+    puller.set_network()
+    
+    # Pull data
+    posts = puller.get_all_posts(limit=10)
+    users = puller.get_users()
+    feed = puller.get_feed(limit=100)
+    stats = puller.get_statistics()
+    materials = puller.get_course_materials(limit=50)
+    search_results = puller.search_feed("your search query")
+    
+    # Export
+    puller.export_to_json(posts, 'posts.json')
+    puller.export_posts_to_csv(posts, 'posts.csv')
+```
 
 ## Examples
 
-### Example 1: Quick Post Export
+### Example 1: Basic Usage
 
+1. Start the server:
 ```bash
-python3 piazza_puller.py --email student@university.edu --network-id hl5qm84dl4t3x2 --pull posts --limit 20 --format csv
+python3 app.py
 ```
 
-### Example 2: Full Data Export
+2. Open browser to `http://localhost:5001`
+3. Login with your Piazza credentials
+4. Select a class and pull data
 
+### Example 2: Using Demo Mode
+
+1. Start the server:
 ```bash
-python3 piazza_puller.py --pull all --format both --output-dir my_data
+python3 app.py
 ```
 
-### Example 3: Using Config File
-
-1. Create `config.json`:
-```json
-{
-  "email": "student@university.edu",
-  "password": "mypassword",
-  "network_id": "hl5qm84dl4t3x2"
-}
-```
-
-2. Run:
-```bash
-python3 piazza_puller.py --pull posts --format both
-```
+2. Open browser to `http://localhost:5001`
+3. Login with demo credentials: `admin@demo.com` / `demo123`
+4. Test the interface without real Piazza credentials
 
 ## Rate Limiting
 
-To avoid being rate-limited by Piazza, the script includes a `--sleep` parameter that adds a delay between requests. The default is 1 second, but you can adjust it:
-
-```bash
-python3 piazza_puller.py --pull posts --sleep 2.0  # 2 seconds between requests
-```
-
-For large datasets, it's recommended to use at least 1 second delay.
+To avoid being rate-limited by Piazza, the application includes automatic delays between requests. For large datasets, the web UI will automatically add appropriate delays to prevent rate limiting.
 
 ## Error Handling
 
@@ -241,6 +234,22 @@ The application handles common errors:
 
 If an error occurs, the script will display a clear error message and exit gracefully.
 
+## Project Structure
+
+```
+piazza-data-puller/
+├── app.py                  # Flask web application (main entry point)
+├── piazza_puller.py        # Core PiazzaPuller class (library)
+├── config.json.example     # Example configuration file (optional)
+├── requirements.txt        # Python dependencies
+├── templates/
+│   └── index.html          # Web UI frontend template
+├── output/                 # Exported files directory (created automatically)
+├── uploads/                # Upload directory (created automatically)
+├── README.md               # This file
+└── README-UI.md            # Detailed web UI documentation
+```
+
 ## Security Notes
 
 ⚠️ **Important Security Considerations:**
@@ -249,6 +258,11 @@ If an error occurs, the script will display a clear error message and exit grace
 2. **Use environment variables** for production deployments
 3. **Keep your credentials secure** - Don't share your config file
 4. **Use read-only operations** - This tool only pulls data, it doesn't modify Piazza
+5. **Web UI Security** - The web UI is designed for local development. For production use:
+   - Use proper session management (Redis, database)
+   - Implement HTTPS
+   - Add rate limiting
+   - Secure credential storage
 
 ## Troubleshooting
 
@@ -268,9 +282,25 @@ If you get authentication errors:
 ### Rate Limiting
 
 If you get rate-limited:
-- Increase the `--sleep` parameter (e.g., `--sleep 2.0`)
-- Pull smaller batches using `--limit`
+- Pull smaller batches using the limit option
 - Wait a few minutes before retrying
+- The application automatically includes delays between requests
+
+## Dependencies
+
+The project requires the following Python packages (see `requirements.txt`):
+
+- `piazza-api` - Official Piazza API library
+- `requests` - HTTP library
+- `six` - Python 2/3 compatibility
+- `flask` - Web framework (for Web UI)
+- `werkzeug` - WSGI utilities (for Web UI)
+
+Install all dependencies:
+
+```bash
+pip install -r requirements.txt
+```
 
 ## License
 
@@ -279,4 +309,9 @@ This project uses the Piazza API library which is licensed under MIT License.
 ## Disclaimer
 
 This is an unofficial tool. It is not affiliated with Piazza Technologies Inc. Use at your own risk and be respectful of Piazza's terms of service.
+
+## Additional Resources
+
+- [README-UI.md](README-UI.md) - Detailed documentation for the Web UI
+- [piazza-api-usage-guide.md](piazza-api-usage-guide.md) - Guide for using the Piazza API library
 

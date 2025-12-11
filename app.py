@@ -10,8 +10,6 @@ import csv
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file, session
 from werkzeug.utils import secure_filename
-import tempfile
-import shutil
 
 from piazza_puller import PiazzaPuller
 
@@ -354,5 +352,6 @@ if __name__ == '__main__':
     print("Starting server on http://localhost:5001")
     print("Open your browser and navigate to the URL above")
     print("=" * 50)
+    print()
     app.run(debug=True, host='0.0.0.0', port=5001)
 

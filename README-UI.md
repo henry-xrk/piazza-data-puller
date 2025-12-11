@@ -30,13 +30,12 @@ pip3 install piazza-api
 1. **Start the server:**
 
 ```bash
-cd pull-test
 python3 app.py
 ```
 
 2. **Open your browser:**
 
-Navigate to: `http://localhost:5000`
+Navigate to: `http://localhost:5001`
 
 You should see the login page.
 
@@ -116,11 +115,11 @@ Click on one of the data type cards:
 
 ### Server Won't Start
 
-**Error: Port 5000 already in use**
+**Error: Port 5001 already in use**
 
 Change the port in `app.py`:
 ```python
-app.run(debug=True, host='0.0.0.0', port=5001)  # Use different port
+app.run(debug=True, host='0.0.0.0', port=5002)  # Use different port
 ```
 
 ### Authentication Fails
@@ -171,7 +170,7 @@ The web UI uses these API endpoints:
 ### File Structure
 
 ```
-pull-test/
+piazza-data-puller/
 ├── app.py              # Flask web application
 ├── templates/
 │   └── index.html      # Web UI frontend

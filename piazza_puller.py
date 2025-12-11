@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Piazza Data Puller - A simple application to pull data from Piazza
+Piazza Data Puller - Library for pulling data from Piazza
+Used by the web UI application
 """
 
 import json
 import csv
 import os
-import sys
-import argparse
 import re
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -16,8 +15,7 @@ try:
     from piazza_api import Piazza
     from piazza_api.exceptions import AuthenticationError, NotAuthenticatedError, RequestError
 except ImportError:
-    print("Error: piazza-api is not installed. Please run: pip install piazza-api")
-    sys.exit(1)
+    raise ImportError("piazza-api is not installed. Please run: pip install piazza-api")
 
 
 class PiazzaPuller:
@@ -388,124 +386,4 @@ class PiazzaPuller:
             return False
 
 
-def load_config(config_file: str = 'config.json') -> Dict:
-    """Load configuration from JSON file"""
-    if os.path.exists(config_file):
-        try:
-            with open(config_file, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Warning: Could not load config file: {e}")
-    return {}
-
-
-def main():
-    """Main function"""
-    parser = argparse.ArgumentParser(
-        description='Piazza Data Puller - Pull data from Piazza',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Interactive mode
-  python piazza_puller.py
-  
-  # Pull posts with credentials
-  python piazza_puller.py --email user@example.com --network-id abc123 --pull posts
-  
-  # Pull users and export to CSV
-  python piazza_puller.py --email user@example.com --network-id abc123 --pull users --format csv
-        """
-    )
-    
-    parser.add_argument('--email', help='Piazza email')
-    parser.add_argument('--password', help='Piazza password')
-    parser.add_argument('--network-id', '--nid', dest='network_id', help='Network ID (class ID)')
-    parser.add_argument('--config', default='config.json', help='Config file path (default: config.json)')
-    parser.add_argument('--pull', choices=['posts', 'users', 'feed', 'stats', 'materials', 'all'], 
-                       default='posts', help='What to pull (default: posts)')
-    parser.add_argument('--limit', type=int, help='Limit number of posts to pull')
-    parser.add_argument('--format', choices=['json', 'csv', 'both'], default='json',
-                       help='Export format (default: json)')
-    parser.add_argument('--output-dir', default='output', help='Output directory (default: output)')
-    parser.add_argument('--sleep', type=float, default=1.0, 
-                       help='Sleep time between requests in seconds (default: 1.0)')
-    
-    args = parser.parse_args()
-    
-    # Load config
-    config = load_config(args.config)
-    email = args.email or config.get('email')
-    password = args.password or config.get('password')
-    network_id = args.network_id or config.get('network_id')
-    
-    # Create output directory
-    os.makedirs(args.output_dir, exist_ok=True)
-    
-    # Initialize puller
-    puller = PiazzaPuller(email=email, password=password, network_id=network_id)
-    
-    # Authenticate
-    if not puller.authenticate():
-        sys.exit(1)
-    
-    # Set network
-    if not puller.set_network():
-        if not network_id:
-            network_id = input("Enter Network ID: ").strip()
-            if not puller.set_network(network_id):
-                sys.exit(1)
-        else:
-            sys.exit(1)
-    
-    # Generate timestamp for filenames
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Pull data based on argument
-    if args.pull in ['posts', 'all']:
-        posts = puller.get_all_posts(limit=args.limit, sleep=args.sleep)
-        if posts:
-            if args.format in ['json', 'both']:
-                filename = os.path.join(args.output_dir, f'posts_{timestamp}.json')
-                puller.export_to_json(posts, filename)
-            if args.format in ['csv', 'both']:
-                filename = os.path.join(args.output_dir, f'posts_{timestamp}.csv')
-                puller.export_posts_to_csv(posts, filename)
-    
-    if args.pull in ['users', 'all']:
-        users = puller.get_users()
-        if users:
-            if args.format in ['json', 'both']:
-                filename = os.path.join(args.output_dir, f'users_{timestamp}.json')
-                puller.export_to_json(users, filename)
-            if args.format in ['csv', 'both']:
-                filename = os.path.join(args.output_dir, f'users_{timestamp}.csv')
-                puller.export_users_to_csv(users, filename)
-    
-    if args.pull in ['feed', 'all']:
-        feed = puller.get_feed(limit=args.limit or 100)
-        if feed:
-            filename = os.path.join(args.output_dir, f'feed_{timestamp}.json')
-            puller.export_to_json(feed, filename)
-    
-    if args.pull in ['stats', 'all']:
-        stats = puller.get_statistics()
-        if stats:
-            filename = os.path.join(args.output_dir, f'statistics_{timestamp}.json')
-            puller.export_to_json(stats, filename)
-    
-    if args.pull in ['materials', 'all']:
-        materials = puller.get_course_materials(limit=args.limit, sleep=args.sleep)
-        if materials:
-            if args.format in ['json', 'both']:
-                filename = os.path.join(args.output_dir, f'course_materials_{timestamp}.json')
-                puller.export_to_json(materials, filename)
-            if args.format in ['csv', 'both']:
-                filename = os.path.join(args.output_dir, f'course_materials_{timestamp}.csv')
-                puller.export_posts_to_csv(materials, filename)
-    
-    print("\n✓ Data pull completed!")
-
-
-if __name__ == '__main__':
-    main()
 
