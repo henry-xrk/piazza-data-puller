@@ -7,8 +7,10 @@ Simple Flask web application for pulling data from Piazza
 import os
 import json
 import csv
+import io
+import zipfile
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_file, session
+from flask import Flask, render_template, request, jsonify, send_file, session, Response
 from werkzeug.utils import secure_filename
 
 from piazza_puller import PiazzaPuller
@@ -200,9 +202,53 @@ def set_network():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def export_to_json_memory(data):
+    """Export data to JSON in memory"""
+    output = io.StringIO()
+    json.dump(data, output, indent=2, ensure_ascii=False, default=str)
+    return output.getvalue().encode('utf-8')
+
+def export_posts_to_csv_memory(posts):
+    """Export posts to CSV in memory"""
+    if not posts:
+        return None
+    
+    output = io.StringIO()
+    fieldnames = set()
+    for post in posts:
+        fieldnames.update(post.keys())
+    fieldnames = sorted(list(fieldnames))
+    
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    
+    for post in posts:
+        row = {}
+        for key, value in post.items():
+            if isinstance(value, (list, dict)):
+                row[key] = json.dumps(value)
+            else:
+                row[key] = value
+        writer.writerow(row)
+    
+    return output.getvalue().encode('utf-8')
+
+def export_users_to_csv_memory(users):
+    """Export users to CSV in memory"""
+    if not users:
+        return None
+    
+    output = io.StringIO()
+    fieldnames = ['id', 'name', 'email', 'role']
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(users)
+    
+    return output.getvalue().encode('utf-8')
+
 @app.route('/api/pull-data', methods=['POST'])
 def pull_data():
-    """Pull data from Piazza"""
+    """Pull data from Piazza and return as direct download"""
     try:
         data = request.json
         data_type = data.get('type', 'posts')  # posts, users, feed, stats, materials
@@ -249,49 +295,61 @@ def pull_data():
         if not result_data:
             return jsonify({'success': False, 'error': 'No data retrieved'}), 400
         
-        # Export data
-        files_created = []
+        # Generate files in memory
+        files_data = {}
         
         if format_type in ['json', 'both']:
-            json_filename = os.path.join(OUTPUT_FOLDER, f'{filename_base}.json')
-            if puller.export_to_json(result_data, json_filename):
-                files_created.append(f'{filename_base}.json')
+            json_data = export_to_json_memory(result_data)
+            files_data[f'{filename_base}.json'] = json_data
         
         if format_type in ['csv', 'both']:
             if data_type in ['posts', 'materials']:
-                csv_filename = os.path.join(OUTPUT_FOLDER, f'{filename_base}.csv')
-                if puller.export_posts_to_csv(result_data, csv_filename):
-                    files_created.append(f'{filename_base}.csv')
+                csv_data = export_posts_to_csv_memory(result_data)
+                if csv_data:
+                    files_data[f'{filename_base}.csv'] = csv_data
             elif data_type == 'users':
-                csv_filename = os.path.join(OUTPUT_FOLDER, f'{filename_base}.csv')
-                if puller.export_users_to_csv(result_data, csv_filename):
-                    files_created.append(f'{filename_base}.csv')
-            elif data_type == 'search':
-                # Search results are in feed format, convert to list for CSV export
+                csv_data = export_users_to_csv_memory(result_data)
+                if csv_data:
+                    files_data[f'{filename_base}.csv'] = csv_data
+            elif data_type in ['feed', 'search']:
+                # Feed and search results are in feed format, convert to list for CSV export
                 if 'feed' in result_data:
                     feed_posts = result_data['feed']
-                    csv_filename = os.path.join(OUTPUT_FOLDER, f'{filename_base}.csv')
-                    if puller.export_posts_to_csv(feed_posts, csv_filename):
-                        files_created.append(f'{filename_base}.csv')
+                    csv_data = export_posts_to_csv_memory(feed_posts)
+                    if csv_data:
+                        files_data[f'{filename_base}.csv'] = csv_data
         
-        # Get data summary
-        if isinstance(result_data, list):
-            count = len(result_data)
-        elif isinstance(result_data, dict):
-            if 'feed' in result_data:
-                count = len(result_data['feed'])
-            else:
-                count = 1
+        # If only one file, return it directly
+        if len(files_data) == 1:
+            filename, file_data = next(iter(files_data.items()))
+            return Response(
+                file_data,
+                mimetype='application/json' if filename.endswith('.json') else 'text/csv',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Length': str(len(file_data))
+                }
+            )
+        
+        # If multiple files, zip them
+        elif len(files_data) > 1:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for filename, file_data in files_data.items():
+                    zip_file.writestr(filename, file_data)
+            zip_buffer.seek(0)
+            
+            zip_filename = f'{filename_base}.zip'
+            return Response(
+                zip_buffer.getvalue(),
+                mimetype='application/zip',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{zip_filename}"',
+                    'Content-Length': str(len(zip_buffer.getvalue()))
+                }
+            )
         else:
-            count = 1
-        
-        return jsonify({
-            'success': True,
-            'message': f'Successfully pulled {count} items',
-            'count': count,
-            'files': files_created,
-            'preview': result_data[:5] if isinstance(result_data, list) else result_data
-        })
+            return jsonify({'success': False, 'error': 'No files generated'}), 400
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

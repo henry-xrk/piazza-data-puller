@@ -403,9 +403,8 @@
             </div>
 
             <div class="results" id="results" style="display: none;">
-                <h3>Results</h3>
-                <p id="resultMessage"></p>
-                <ul class="file-list" id="fileList"></ul>
+                <h3>Download Status</h3>
+                <p id="resultMessage">Your file download should start automatically. If it doesn't, check your browser's download settings.</p>
             </div>
         </div>
     </div>
@@ -613,27 +612,54 @@
                     body: JSON.stringify(requestBody)
                 });
                 
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('resultMessage').textContent = 
-                        `Successfully pulled ${data.count} items. Files created:`;
-                    
-                    const fileList = document.getElementById('fileList');
-                    fileList.innerHTML = '';
-                    data.files.forEach(filename => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `
-                            <span>${filename}</span>
-                            <a href="/api/download/${filename}" download>Download</a>
-                        `;
-                        fileList.appendChild(li);
-                    });
-                    
-                    document.getElementById('results').style.display = 'block';
-                    showAlert('Data pulled successfully!', 'success');
+                // Check if response is successful (200-299)
+                if (response.ok) {
+                    // Check if response is a file download
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && (contentType.includes('application/json') || 
+                        contentType.includes('text/csv') || 
+                        contentType.includes('application/zip'))) {
+                        
+                        // Get filename from Content-Disposition header
+                        const contentDisposition = response.headers.get('content-disposition');
+                        let filename = 'download';
+                        if (contentDisposition) {
+                            const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                            if (filenameMatch) {
+                                filename = filenameMatch[1];
+                            }
+                        }
+                        
+                        // Download the file
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                        
+                        showAlert('Data downloaded successfully!', 'success');
+                        document.getElementById('results').style.display = 'block';
+                    } else {
+                        // Try to parse as JSON (for error messages)
+                        const data = await response.json();
+                        if (data.success) {
+                            showAlert('Data downloaded successfully!', 'success');
+                        } else {
+                            showAlert(data.error || 'Failed to pull data', 'error');
+                        }
+                    }
                 } else {
-                    showAlert(data.error || 'Failed to pull data', 'error');
+                    // Error response - try to parse as JSON
+                    try {
+                        const data = await response.json();
+                        showAlert(data.error || 'Failed to pull data', 'error');
+                    } catch (e) {
+                        showAlert('Failed to pull data. Status: ' + response.status, 'error');
+                    }
                 }
             } catch (error) {
                 showAlert('Error: ' + error.message, 'error');
