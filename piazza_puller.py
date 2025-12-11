@@ -8,8 +8,10 @@ import json
 import csv
 import os
 import re
+import requests
 from datetime import datetime
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
 try:
     from piazza_api import Piazza
@@ -384,6 +386,118 @@ class PiazzaPuller:
         except Exception as e:
             print(f"✗ Error exporting users to CSV: {e}")
             return False
+    
+    def download_attachments(self, materials: List[Dict], output_dir: str = "downloads", 
+                            file_types: Optional[List[str]] = None) -> Dict[str, str]:
+        """
+        Download attachments (PDFs, etc.) from course materials
+        
+        Args:
+            materials: List of course materials (from get_course_materials())
+            output_dir: Directory to save downloaded files
+            file_types: List of file extensions to download (e.g., ['pdf', 'docx']). 
+                       If None, downloads all attachments.
+        
+        Returns:
+            Dictionary mapping attachment URLs to local file paths
+        """
+        if not self.authenticated:
+            print("✗ Not authenticated. Please authenticate first.")
+            return {}
+        
+        if not self.network:
+            print("✗ Network not set. Please set network first.")
+            return {}
+        
+        # Get session cookies from Piazza API
+        cookies = None
+        try:
+            # The Piazza class uses _rpc_api internally which is a PiazzaRPC instance
+            # PiazzaRPC has a session attribute with cookies
+            rpc = getattr(self.p, '_rpc_api', None)
+            
+            if rpc and hasattr(rpc, 'session') and hasattr(rpc.session, 'cookies'):
+                cookies = rpc.session.cookies
+            elif rpc and hasattr(rpc, 'get_cookies'):
+                # PiazzaRPC might have a get_cookies() method
+                cookies = rpc.get_cookies()
+            elif hasattr(self.network, '_rpc') and hasattr(self.network._rpc, 'session'):
+                # Try network's RPC as fallback
+                cookies = self.network._rpc.session.cookies
+            
+            if not cookies:
+                print("✗ Could not access session cookies. Cannot download files automatically.")
+                print("  Note: Attachment URLs are still available in the JSON/CSV output.")
+                print("  You can download them manually by:")
+                print("    1. Opening the URLs in a browser while logged into Piazza")
+                print("    2. Or using the URLs with your authenticated session")
+                return {}
+        except Exception as e:
+            print(f"✗ Error accessing session: {e}")
+            print("  Note: Attachment URLs are still available in the JSON/CSV output.")
+            print("  You can download them manually by opening the URLs while logged into Piazza.")
+            return {}
+        
+        # Create output directory
+        os.makedirs(output_dir, exist_ok=True)
+        
+        downloaded_files = {}
+        file_count = 0
+        skipped_count = 0
+        
+        print(f"Downloading attachments to {output_dir}...")
+        
+        for material in materials:
+            attachments = material.get('attachments', [])
+            post_id = material.get('id', 'unknown')
+            post_subject = material.get('subject', 'Untitled')
+            
+            for attachment in attachments:
+                try:
+                    # Get attachment URL and name
+                    attachment_url = attachment.get('url') or attachment.get('link')
+                    attachment_name = attachment.get('name') or attachment.get('filename', 'unnamed')
+                    
+                    if not attachment_url:
+                        continue
+                    
+                    # Check file type filter
+                    if file_types:
+                        file_ext = os.path.splitext(attachment_name)[1].lstrip('.').lower()
+                        if file_ext not in [ft.lower() for ft in file_types]:
+                            skipped_count += 1
+                            continue
+                    
+                    # Create safe filename
+                    safe_name = re.sub(r'[^\w\s.-]', '', attachment_name)
+                    if not safe_name:
+                        safe_name = f"attachment_{post_id}_{file_count}"
+                    
+                    # Add post ID prefix to avoid filename conflicts
+                    file_path = os.path.join(output_dir, f"{post_id}_{safe_name}")
+                    
+                    # Download the file
+                    try:
+                        response = requests.get(attachment_url, cookies=cookies, timeout=30)
+                        if response.status_code == 200:
+                            with open(file_path, 'wb') as f:
+                                f.write(response.content)
+                            downloaded_files[attachment_url] = file_path
+                            file_count += 1
+                            print(f"  ✓ Downloaded: {safe_name}")
+                        else:
+                            print(f"  ✗ Failed to download {safe_name} (HTTP {response.status_code})")
+                            skipped_count += 1
+                    except requests.exceptions.RequestException as e:
+                        print(f"  ✗ Error downloading {safe_name}: {e}")
+                        skipped_count += 1
+                        
+                except Exception as e:
+                    print(f"  ✗ Error processing attachment: {e}")
+                    skipped_count += 1
+        
+        print(f"✓ Downloaded {file_count} files, skipped {skipped_count}")
+        return downloaded_files
 
 
 

@@ -108,14 +108,64 @@ def example_with_config():
         print("✓ Exported to example_feed.json")
 
 
+def example_download_pdfs():
+    """Example: Download PDF attachments from course materials"""
+    print("=" * 50)
+    print("Example: Downloading PDF Attachments")
+    print("=" * 50)
+    
+    # Initialize puller
+    puller = PiazzaPuller()
+    
+    # Authenticate
+    if not puller.authenticate():
+        print("Authentication failed")
+        return
+    
+    # Set network
+    network_id = input("Enter Network ID: ").strip()
+    if not puller.set_network(network_id):
+        print("Failed to set network")
+        return
+    
+    # Get course materials
+    print("\nFetching course materials...")
+    materials = puller.get_course_materials(limit=20, sleep=0.5)
+    
+    print(f"\nFound {len(materials)} materials with attachments/links")
+    
+    # Download PDFs only
+    print("\nDownloading PDF attachments...")
+    downloaded = puller.download_attachments(
+        materials, 
+        output_dir="downloaded_pdfs",
+        file_types=['pdf']  # Only download PDFs
+    )
+    
+    if downloaded:
+        print(f"\n✓ Successfully downloaded {len(downloaded)} PDF files")
+        print("  Files saved in: downloaded_pdfs/")
+    else:
+        print("\n⚠ No PDFs were downloaded.")
+        print("  This could mean:")
+        print("  - No PDF attachments found in the materials")
+        print("  - Session cookies could not be accessed")
+        print("  - Attachment URLs require manual authentication")
+    
+    # Also export materials metadata to JSON
+    puller.export_to_json(materials, 'example_materials.json')
+    print("\n✓ Exported materials metadata to example_materials.json")
+
+
 if __name__ == '__main__':
     print("\nPiazza Data Puller - Example Usage\n")
     print("Choose an example to run:")
     print("1. Pull Posts")
     print("2. Pull Users")
     print("3. Use Config File (requires config.json)")
+    print("4. Download PDF Attachments")
     
-    choice = input("\nEnter choice (1-3): ").strip()
+    choice = input("\nEnter choice (1-4): ").strip()
     
     if choice == '1':
         example_pull_posts()
@@ -123,6 +173,8 @@ if __name__ == '__main__':
         example_pull_users()
     elif choice == '3':
         example_with_config()
+    elif choice == '4':
+        example_download_pdfs()
     else:
         print("Invalid choice")
 
