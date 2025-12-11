@@ -87,10 +87,28 @@ class PiazzaPuller:
         
         try:
             for i, post in enumerate(self.network.iter_all_posts(limit=limit, sleep=sleep)):
+                # Extract content and subject from history (most recent version)
+                content = ''
+                subject = post.get('subject', '')
+                
+                if 'history' in post and len(post['history']) > 0:
+                    latest_history = post['history'][0]
+                    # Content is usually in history[0]['content'] or history[0]['subject']
+                    content = latest_history.get('content', '') or latest_history.get('subject', '')
+                    # Subject might also be in history
+                    if not subject:
+                        subject = latest_history.get('subject', '')
+                
+                # Fallback to direct post fields if history doesn't have it
+                if not content:
+                    content = post.get('content', '')
+                if not subject:
+                    subject = post.get('subject', '')
+                
                 post_data = {
                     'id': post.get('id'),
-                    'subject': post.get('subject', ''),
-                    'content': post.get('content', ''),
+                    'subject': subject,
+                    'content': content,
                     'type': post.get('type', ''),
                     'created': post.get('created', ''),
                     'updated': post.get('updated', ''),
@@ -108,16 +126,36 @@ class PiazzaPuller:
                     post_data['author'] = author.get('uid', '')
                     post_data['author_name'] = author.get('name', 'Unknown')
                 
-                # Extract answer information
+                # Extract answer information (instructor answers and student answers)
                 if 'children' in post:
-                    answers = []
+                    instructor_answers = []
+                    student_answers = []
                     for child in post['children']:
-                        if child.get('type') == 'i_answer':
-                            answers.append({
-                                'content': child.get('subject', ''),
-                                'revision': child.get('revision', 0)
+                        child_type = child.get('type', '')
+                        # Get content from child's history
+                        child_content = ''
+                        if 'history' in child and len(child['history']) > 0:
+                            child_content = child['history'][0].get('content', '') or child['history'][0].get('subject', '')
+                        else:
+                            child_content = child.get('subject', '') or child.get('content', '')
+                        
+                        if child_type == 'i_answer':
+                            instructor_answers.append({
+                                'content': child_content,
+                                'revision': child.get('revision', 0),
+                                'created': child.get('created', '')
                             })
-                    post_data['instructor_answers'] = answers
+                        elif child_type == 's_answer':
+                            student_answers.append({
+                                'content': child_content,
+                                'revision': child.get('revision', 0),
+                                'created': child.get('created', '')
+                            })
+                    
+                    if instructor_answers:
+                        post_data['instructor_answers'] = instructor_answers
+                    if student_answers:
+                        post_data['student_answers'] = student_answers
                 
                 # Extract attachments and course materials
                 attachments = []
@@ -138,7 +176,7 @@ class PiazzaPuller:
                                 attachments.extend(hist_data.get('embed_links', []))
                 
                 # Extract links from content (basic URL extraction)
-                content = post_data.get('content', '')
+                # Use the content we already extracted
                 urls = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', content)
                 if urls:
                     post_data['links'] = urls
@@ -252,11 +290,34 @@ class PiazzaPuller:
                 has_links = False
                 is_instructor_note = False
                 
+                # Extract content from history (most recent version)
+                content = ''
+                subject = post.get('subject', '')
+                if 'history' in post and len(post['history']) > 0:
+                    latest_history = post['history'][0]
+                    content = latest_history.get('content', '') or latest_history.get('subject', '')
+                    if not subject:
+                        subject = latest_history.get('subject', '')
+                
+                # Fallback to direct post fields
+                if not content:
+                    content = post.get('content', '') or post.get('subject', '')
+                if not subject:
+                    subject = post.get('subject', '')
+                
                 # Check for attachments
                 if 'data' in post:
                     data = post.get('data', {})
                     if data.get('embed_links') or data.get('attachments'):
                         has_attachments = True
+                
+                # Check attachments in history
+                if 'history' in post:
+                    for hist_item in post['history']:
+                        if 'data' in hist_item:
+                            hist_data = hist_item.get('data', {})
+                            if hist_data.get('embed_links') or hist_data.get('attachments'):
+                                has_attachments = True
                 
                 # Check if it's an instructor note
                 tags = post.get('tags', [])
@@ -264,7 +325,6 @@ class PiazzaPuller:
                     is_instructor_note = True
                 
                 # Extract links from content
-                content = post.get('content', '') or post.get('subject', '')
                 urls = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', content)
                 if urls:
                     has_links = True
@@ -302,9 +362,11 @@ class PiazzaPuller:
                     if urls:
                         material['links'] = urls
                     
-                    # Include content snippet
-                    content_preview = (post.get('content', '') or post.get('subject', ''))[:200]
+                    # Include content snippet (use the content we already extracted)
+                    content_preview = (content or subject)[:200]
                     material['content_preview'] = content_preview
+                    # Also include full content
+                    material['content'] = content
                     
                     materials.append(material)
                 
