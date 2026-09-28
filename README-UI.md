@@ -35,7 +35,7 @@ python3 app.py
 
 2. **Open your browser:**
 
-Navigate to: `http://localhost:5001`
+Navigate to: `http://127.0.0.1:5001`
 
 You should see the login page.
 
@@ -117,10 +117,13 @@ Click on one of the data type cards:
 
 **Error: Port 5001 already in use**
 
-Change the port in `app.py`:
-```python
-app.run(debug=True, host='0.0.0.0', port=5002)  # Use different port
+Start the server on another port:
+
+```bash
+PIAZZA_PULLER_PORT=5002 python3 app.py
 ```
+
+The server listens on `127.0.0.1` only. Set `PIAZZA_PULLER_HOST` only if you intentionally want another bind address. Leave `FLASK_DEBUG` unset unless you are debugging locally.
 
 ### Authentication Fails
 
@@ -144,7 +147,7 @@ app.run(debug=True, host='0.0.0.0', port=5002)  # Use different port
 
 ⚠️ **Important:**
 
-1. **Local Development Only** - This is designed for local use. For production:
+1. **Local use only** - The server binds to `127.0.0.1` and the debugger is off unless `FLASK_DEBUG=1`. Do not expose it on a public host. For anything beyond local use:
    - Use proper session management (Redis, database)
    - Implement HTTPS
    - Add rate limiting
@@ -214,7 +217,7 @@ To add new features:
 
 ## License
 
-Same as the main project - MIT License
+MIT License. See [LICENSE](LICENSE).
 
 ## Support
 

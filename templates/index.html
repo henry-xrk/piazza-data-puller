@@ -317,7 +317,9 @@
                     </small>
                 </div>
                 <button type="submit" class="btn" id="loginBtn">Login</button>
+                {% if demo_mode %}
                 <button type="button" class="btn btn-secondary" id="demoLoginBtn" style="margin-top: 10px;">Quick Demo Login</button>
+                {% endif %}
             </form>
         </div>
 
@@ -413,12 +415,15 @@
         let selectedDataType = null;
         let currentNetworkId = null;
 
-        // Quick Demo Login
-        document.getElementById('demoLoginBtn').addEventListener('click', () => {
-            document.getElementById('email').value = 'admin@demo.com';
-            document.getElementById('password').value = 'demo123';
-            document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-        });
+        // Quick Demo Login (only rendered when PIAZZA_DEMO_MODE is enabled)
+        const demoLoginBtn = document.getElementById('demoLoginBtn');
+        if (demoLoginBtn) {
+            demoLoginBtn.addEventListener('click', () => {
+                document.getElementById('email').value = 'admin@demo.com';
+                document.getElementById('password').value = 'demo123';
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            });
+        }
 
         // Login
         document.getElementById('loginForm').addEventListener('submit', async (e) => {

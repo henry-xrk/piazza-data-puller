@@ -349,8 +349,12 @@ print(stats)
 
 **Example:**
 ```python
-# Using piazza_puller.py
-python3 piazza_puller.py --pull materials --format both
+from piazza_puller import PiazzaPuller
+
+puller = PiazzaPuller(email="your@email.com", password="password", network_id="network_id")
+puller.authenticate()
+puller.set_network()
+materials = puller.get_course_materials()
 ```
 
 ---
@@ -439,29 +443,31 @@ When you pull posts, each post contains:
 
 ## 🚀 Quick Reference
 
-### Using piazza_puller.py:
+### Using the web UI
 
 ```bash
-# Pull posts
-python3 piazza_puller.py --pull posts --format both
-
-# Pull users
-python3 piazza_puller.py --pull users --format csv
-
-# Pull feed
-python3 piazza_puller.py --pull feed
-
-# Pull statistics
-python3 piazza_puller.py --pull stats
-
-# Pull course materials
-python3 piazza_puller.py --pull materials --format both
-
-# Pull everything
-python3 piazza_puller.py --pull all --format both
+python3 app.py
 ```
 
-### Using Python API directly:
+Open `http://127.0.0.1:5001`, log in, and choose a data type. There is no command-line interface on `piazza_puller.py`.
+
+### Using `PiazzaPuller`
+
+```python
+from piazza_puller import PiazzaPuller
+
+puller = PiazzaPuller(email="your@email.com", password="password", network_id="network_id")
+puller.authenticate()
+puller.set_network()
+
+posts = puller.get_all_posts(limit=50)
+users = puller.get_users()
+feed = puller.get_feed(limit=100)
+stats = puller.get_statistics()
+materials = puller.get_course_materials()
+```
+
+### Using the `piazza-api` library directly
 
 ```python
 from piazza_api import Piazza

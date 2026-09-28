@@ -16,12 +16,15 @@ from werkzeug.utils import secure_filename
 from piazza_puller import PiazzaPuller
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # For session management
+app.secret_key = os.environ.get('FLASK_SECRET_KEY') or os.urandom(24)
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'output'
 ALLOWED_EXTENSIONS = {'json'}
+DEMO_MODE = os.environ.get('PIAZZA_DEMO_MODE', '').lower() in ('1', 'true', 'yes')
+DEMO_EMAIL = 'admin@demo.com'
+DEMO_PASSWORD = 'demo123'
 
 # Create necessary directories
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -34,7 +37,7 @@ puller_instances = {}
 @app.route('/')
 def index():
     """Main page"""
-    return render_template('index.html')
+    return render_template('index.html', demo_mode=DEMO_MODE)
 
 
 @app.route('/api/login', methods=['POST'])
@@ -46,25 +49,24 @@ def login():
         password = data.get('password')
         network_id = data.get('network_id')  # Optional network ID from login
         
-        # DEMO MODE: Allow fake admin login for testing UI
-        DEMO_MODE = True  # Set to False to disable demo mode
-        DEMO_EMAIL = "admin@demo.com"
-        DEMO_PASSWORD = "demo123"
-        
         if DEMO_MODE and email == DEMO_EMAIL and password == DEMO_PASSWORD:
             # Create a mock puller instance for demo
             class MockPuller:
                 def __init__(self):
+                    class DemoApi:
+                        def get_user_profile(_self):
+                            return {'name': 'Demo Admin', 'email': DEMO_EMAIL}
+
+                        def get_user_classes(_self):
+                            return [
+                                {'name': 'Demo Class 1', 'term': 'Fall 2024', 'nid': 'demo_class_1', 'is_ta': False},
+                                {'name': 'Demo Class 2', 'term': 'Spring 2024', 'nid': 'demo_class_2', 'is_ta': True},
+                            ]
+
                     self.network = None
                     self.network_id = network_id
                     self.authenticated = True
-                    self.p = type('obj', (object,), {
-                        'get_user_profile': lambda: {'name': 'Demo Admin', 'email': DEMO_EMAIL},
-                        'get_user_classes': lambda: [
-                            {'name': 'Demo Class 1', 'term': 'Fall 2024', 'nid': 'demo_class_1', 'is_ta': False},
-                            {'name': 'Demo Class 2', 'term': 'Spring 2024', 'nid': 'demo_class_2', 'is_ta': True}
-                        ]
-                    })()
+                    self.p = DemoApi()
                 
                 def set_network(self, nid):
                     self.network_id = nid
@@ -357,13 +359,24 @@ def pull_data():
 
 @app.route('/api/download/<filename>')
 def download_file(filename):
-    """Download exported file"""
+    """Download an exported file from the current session"""
     try:
-        file_path = os.path.join(OUTPUT_FOLDER, secure_filename(filename))
-        if os.path.exists(file_path):
+        session_id = session.get('session_id')
+        if not session_id or session_id not in puller_instances:
+            return jsonify({'error': 'Not authenticated'}), 401
+
+        safe_name = secure_filename(filename)
+        if not safe_name:
+            return jsonify({'error': 'Invalid filename'}), 400
+
+        output_dir = os.path.abspath(OUTPUT_FOLDER)
+        file_path = os.path.abspath(os.path.join(output_dir, safe_name))
+        if os.path.commonpath([output_dir, file_path]) != output_dir:
+            return jsonify({'error': 'Invalid filename'}), 400
+
+        if os.path.isfile(file_path):
             return send_file(file_path, as_attachment=True)
-        else:
-            return jsonify({'error': 'File not found'}), 404
+        return jsonify({'error': 'File not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -404,12 +417,17 @@ def logout():
 
 
 if __name__ == '__main__':
+    debug = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes')
+    host = os.environ.get('PIAZZA_PULLER_HOST', '127.0.0.1')
+    port = int(os.environ.get('PIAZZA_PULLER_PORT', '5001'))
     print("=" * 50)
     print("Piazza Data Puller - Web UI")
     print("=" * 50)
-    print("Starting server on http://localhost:5001")
+    print(f"Starting server on http://{host}:{port}")
+    if DEMO_MODE:
+        print("Demo mode is ON (PIAZZA_DEMO_MODE). Login: admin@demo.com / demo123")
     print("Open your browser and navigate to the URL above")
     print("=" * 50)
     print()
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=debug, host=host, port=port)
 

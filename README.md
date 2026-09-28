@@ -15,6 +15,7 @@ A web-based application to pull data from Piazza (posts, users, feeds, statistic
 - 💾 Export to JSON or CSV formats
 - 📋 Class selection from enrolled classes
 - 📥 Direct file downloads from the browser
+- 🖨️ Save live posts as PDF, including images and formatting
 
 ## Installation
 
@@ -24,9 +25,12 @@ A web-based application to pull data from Piazza (posts, users, feeds, statistic
 
 ```bash
 pip install -r requirements.txt
+python3 -m playwright install chromium
 ```
 
-Or install directly:
+`playwright install chromium` is only needed for PDF export. The web UI does not use it.
+
+Or install the API client directly:
 
 ```bash
 pip install piazza-api
@@ -44,7 +48,7 @@ python3 app.py
 
 2. **Open your browser:**
 
-Navigate to: `http://localhost:5001`
+Navigate to: `http://127.0.0.1:5001`
 
 You should see the login page.
 
@@ -57,7 +61,7 @@ You should see the login page.
 3. Click "Login"
 4. Wait for authentication (you'll see your name appear)
 
-**Note:** The web UI includes a demo mode for testing (login with `admin@demo.com` / `demo123`).
+**Note:** Demo mode is off by default. To try the UI without Piazza credentials, start the server with `PIAZZA_DEMO_MODE=1` and log in as `admin@demo.com` / `demo123`. Demo mode returns sample data only.
 
 #### Step 2: Set Network (Class)
 
@@ -196,6 +200,20 @@ if puller.authenticate():
     puller.export_posts_to_csv(posts, 'posts.csv')
 ```
 
+## Export Posts as PDF
+
+`piazza_pdf_converter.py` opens the live Piazza page and saves each post as a PDF, so images and formatting stay intact. It collapses the class feed before printing. PDFs are written to `pdfs/` and are gitignored.
+
+```bash
+python3 piazza_pdf_converter.py \
+  --config config.json \
+  --class-id your_class_id \
+  --start 1 \
+  --end 10
+```
+
+The class ID is the value in `https://piazza.com/class/{class_id}`. Add `--no-headless` to watch the browser. Credentials can also be passed with `--email` and `--password`.
+
 ## Examples
 
 ### Example 1: Basic Usage
@@ -205,20 +223,20 @@ if puller.authenticate():
 python3 app.py
 ```
 
-2. Open browser to `http://localhost:5001`
+2. Open browser to `http://127.0.0.1:5001`
 3. Login with your Piazza credentials
 4. Select a class and pull data
 
 ### Example 2: Using Demo Mode
 
-1. Start the server:
+1. Start the server with demo mode enabled:
 ```bash
-python3 app.py
+PIAZZA_DEMO_MODE=1 python3 app.py
 ```
 
-2. Open browser to `http://localhost:5001`
+2. Open browser to `http://127.0.0.1:5001`
 3. Login with demo credentials: `admin@demo.com` / `demo123`
-4. Test the interface without real Piazza credentials
+4. Test the interface without real Piazza credentials. The button only appears when demo mode is on.
 
 ## Rate Limiting
 
@@ -240,12 +258,15 @@ If an error occurs, the script will display a clear error message and exit grace
 piazza-data-puller/
 ├── app.py                  # Flask web application (main entry point)
 ├── piazza_puller.py        # Core PiazzaPuller class (library)
+├── piazza_pdf_converter.py # Save live posts as PDF
 ├── config.json.example     # Example configuration file (optional)
 ├── requirements.txt        # Python dependencies
 ├── templates/
 │   └── index.html          # Web UI frontend template
 ├── output/                 # Exported files directory (created automatically)
+├── pdfs/                   # PDF exports (created by piazza_pdf_converter.py)
 ├── uploads/                # Upload directory (created automatically)
+├── LICENSE                 # MIT License
 ├── README.md               # This file
 └── README-UI.md            # Detailed web UI documentation
 ```
@@ -258,11 +279,12 @@ piazza-data-puller/
 2. **Use environment variables** for production deployments
 3. **Keep your credentials secure** - Don't share your config file
 4. **Use read-only operations** - This tool only pulls data, it doesn't modify Piazza
-5. **Web UI Security** - The web UI is designed for local development. For production use:
+5. **Web UI Security** - The server listens on `127.0.0.1` and runs with the debugger off unless you set `FLASK_DEBUG=1`. Do not expose it on a public host. For anything beyond local use:
    - Use proper session management (Redis, database)
    - Implement HTTPS
    - Add rate limiting
    - Secure credential storage
+6. **Exported data** - Pulls can include classmates' names and emails, plus course content. Do not commit or publish files from `output/`, `downloads/`, `downloaded_pdfs/`, or `pdfs/`.
 
 ## Troubleshooting
 
@@ -295,16 +317,20 @@ The project requires the following Python packages (see `requirements.txt`):
 - `six` - Python 2/3 compatibility
 - `flask` - Web framework (for Web UI)
 - `werkzeug` - WSGI utilities (for Web UI)
+- `playwright` - Browser automation for PDF export
 
-Install all dependencies:
+Install all dependencies, then download the Chromium build used by the PDF exporter:
 
 ```bash
 pip install -r requirements.txt
+python3 -m playwright install chromium
 ```
 
 ## License
 
-This project uses the Piazza API library which is licensed under MIT License.
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
+
+The `piazza-api` library it depends on is a separate project, also MIT licensed: https://github.com/hfaran/piazza-api
 
 ## Disclaimer
 

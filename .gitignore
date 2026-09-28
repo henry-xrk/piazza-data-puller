@@ -44,4 +44,18 @@ ENV/
 config.json
 output/
 uploads/
+downloads/
+downloaded_pdfs/
+pdfs/
+*.pdf
+debug_login_fail.png
+example_posts.json
+example_users.csv
+example_feed.json
+example_materials.json
 *.log
+
+# Environment
+.env
+.env.*
+!.env.example

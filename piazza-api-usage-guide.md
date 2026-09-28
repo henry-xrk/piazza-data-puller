@@ -1,6 +1,8 @@
 # Piazza API Usage Guide
 
-This guide provides comprehensive documentation on how to use the `piazza-api` library, an unofficial client for Piazza's Internal API.
+This guide documents [`piazza-api`](https://github.com/hfaran/piazza-api), a third-party client for Piazza's internal API. It is not the API of this repository. This project only reads data through `PiazzaPuller`. Examples below that create, edit, or delete posts, or that add and remove users, are capabilities of `piazza-api`, not of this tool.
+
+Network IDs and the demo login token in the examples are the public samples from the `piazza-api` documentation.
 
 ## Table of Contents
 
@@ -579,9 +581,9 @@ print(f"Found {len(homework_posts['feed'])} posts in homework folder")
 
 ## License
 
-This project is licensed under the MIT License.
+`piazza-api` is licensed under the MIT License. This repository is also MIT licensed; see [LICENSE](LICENSE).
 
 ## Disclaimer
 
-This is not an official API. The authors are not affiliated with Piazza Technologies Inc. in any way, and are not responsible for any damage that could be done with it. Use it at your own risk.
+`piazza-api` is not an official API. Its authors are not affiliated with Piazza Technologies Inc. Use it at your own risk.
 
